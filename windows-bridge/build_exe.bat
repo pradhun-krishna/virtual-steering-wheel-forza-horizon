@@ -17,7 +17,7 @@ pip install pyinstaller PyQt5 pywin32
 
 echo.
 echo Building EXE...
-pyinstaller --noconfirm --onedir --windowed --name "ForzaWheelServer" --add-data "vJoy;vJoy/" "ServerApp.py"
+pyinstaller --noconfirm --onedir --windowed --name "ForzaWheelServer" --add-data "ViGEmClient.dll;." "ServerApp.py"
 
 if errorlevel 1 (
     echo.

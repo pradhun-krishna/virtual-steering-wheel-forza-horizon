@@ -60,6 +60,12 @@ class ForzaWheelServer(QMainWindow):
         self._build_ui()
         self._connect_signals()
         self._start_log_poller()
+        
+        QTimer.singleShot(500, self._check_vigem_on_startup)
+        
+    def _check_vigem_on_startup(self):
+        if not controller.VIGEM_AVAILABLE:
+            self._setup_vigem()
 
     # ── Fonts ─────────────────────────────────────────────────────────────────
     def _setup_fonts(self):
@@ -133,11 +139,11 @@ class ForzaWheelServer(QMainWindow):
         ctrl = QHBoxLayout()
         self.btn_start = QPushButton("▶  START SERVER")
         self.btn_stop  = QPushButton("■  STOP SERVER")
-        self.btn_vjoy  = QPushButton("⚙  Setup vJoy")
+        self.btn_vigem = QPushButton("⚙  Setup ViGEmBus (Required)")
         self.btn_stop.setEnabled(False)
         self.btn_start.setStyleSheet("background:#0e2a0e; color:#44ff88; border-color:#225522;")
         self.btn_stop.setStyleSheet( "background:#2a0e0e; color:#ff4444; border-color:#552222;")
-        for btn in (self.btn_start, self.btn_stop, self.btn_vjoy):
+        for btn in (self.btn_start, self.btn_stop, self.btn_vigem):
             btn.setFont(QFont("Segoe UI", 10, QFont.Bold))
             btn.setMinimumHeight(36)
             ctrl.addWidget(btn)
@@ -312,7 +318,7 @@ class ForzaWheelServer(QMainWindow):
 
         self.btn_start.clicked.connect(self._start_server)
         self.btn_stop.clicked.connect(self._stop_server)
-        self.btn_vjoy.clicked.connect(self._setup_vjoy)
+        self.btn_vigem.clicked.connect(self._setup_vigem)
 
     # ── Log poller ────────────────────────────────────────────────────────────
     def _start_log_poller(self):
@@ -412,29 +418,38 @@ class ForzaWheelServer(QMainWindow):
         signals.disconnected.emit()
         self._append_log("Server stopped.")
 
-    def _setup_vjoy(self):
-        if not VJOY_SETUP_AVAILABLE:
-            QMessageBox.information(self, "vJoy Setup",
-                "Run vJoy\\vJoySetup.exe manually to install the vJoy driver.\n"
-                "Then restart this application.")
+    def _setup_vigem(self):
+        if controller.VIGEM_AVAILABLE and controller.gamepad is not None:
+            QMessageBox.information(self, "ViGEmBus", "ViGEmBus is already installed and working perfectly!")
             return
-        helper = VjoySetupHelper()
-        status = helper.check_vjoy_status()
-        if status == 'installed':
-            QMessageBox.information(self, "vJoy", "vJoy is already installed.")
-        else:
-            vjoy_exe = Path(__file__).parent / "vJoy" / "vJoySetup.exe"
-            if vjoy_exe.exists():
-                import subprocess
-                subprocess.Popen([str(vjoy_exe)], shell=True)
-                QMessageBox.information(self, "vJoy",
-                    "vJoy installer launched. After installation:\n"
-                    "1. Restart this application\n"
-                    "2. In vJoy Config, ensure device 1 has:\n"
-                    "   - X, Y, Z, Rx axes enabled\n"
-                    "   - At least 16 buttons (for D-pad support)")
-            else:
-                QMessageBox.warning(self, "vJoy", f"vJoySetup.exe not found at:\n{vjoy_exe}")
+
+        reply = QMessageBox.question(self, 'Install ViGEmBus', 
+            "The Virtual Gamepad Emulation Bus (ViGEmBus) driver is missing or could not be loaded.\n\n"
+            "This driver is required to emulate an Xbox 360 controller natively.\n\n"
+            "Would you like to automatically download and install it now?", 
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            
+        if reply == QMessageBox.Yes:
+            import urllib.request
+            import subprocess
+            
+            installer_url = "https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe"
+            installer_path = Path(__file__).parent / "ViGEmBusSetup.exe"
+            
+            self._append_log("Downloading ViGEmBus installer...")
+            try:
+                urllib.request.urlretrieve(installer_url, str(installer_path))
+                self._append_log("Download complete. Launching installer...")
+                
+                # Run the EXE installer
+                subprocess.Popen([str(installer_path)], shell=True)
+                
+                QMessageBox.information(self, "Installation",
+                    "The ViGEmBus installer has been launched.\n\n"
+                    "Please complete the installation, and then RESTART this server application.")
+            except Exception as e:
+                self._append_log(f"Failed to download ViGEmBus: {e}")
+                QMessageBox.critical(self, "Error", f"Failed to download installer:\n{e}\n\nPlease install manually from:\n{installer_url}")
 
     # ── Utility ───────────────────────────────────────────────────────────────
     @staticmethod

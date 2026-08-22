@@ -95,17 +95,17 @@ class SensorEngine(private val sensorManager: SensorManager) : SensorEventListen
 
             Sensor.TYPE_GAME_ROTATION_VECTOR,
             Sensor.TYPE_ROTATION_VECTOR -> {
-                // Convert to rotation matrix → orientation angles (no remapping needed)
                 SensorManager.getRotationMatrixFromVector(rotMatrix, event.values)
-                SensorManager.getOrientation(rotMatrix, orientation)
 
-                // ── orientation[0] = AZIMUTH ──────────────────────────────────────
-                // Azimuth is the angle the phone's Y-axis (portrait "up") makes with
-                // a fixed world reference on the horizontal plane.
-                // When the user rotates the phone like a steering wheel (rotating the
-                // long landscape axis), the azimuth changes — CW = increases, CCW = decreases.
-                // This works at ANY phone tilt angle — flat, upright, or diagonal.
-                val rawDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
+                // The 3rd row of the rotation matrix (rotMatrix[6], rotMatrix[7], rotMatrix[8])
+                // represents the world UP vector (gravity) expressed in device coordinates.
+                // By taking the atan2 of the Y and X components, we get the exact angle
+                // of rotation of the phone within its own screen plane.
+                // This completely avoids Euler gimbal lock and works at any phone tilt!
+                val upX = rotMatrix[6]
+                val upY = rotMatrix[7]
+                
+                val rawDeg = Math.toDegrees(Math.atan2(upY.toDouble(), upX.toDouble())).toFloat()
                 trackContinuous(rawDeg)
 
                 val relative = if (isCalibrated) continuous - calibrationAngle else 0f
@@ -115,14 +115,28 @@ class SensorEngine(private val sensorManager: SensorManager) : SensorEventListen
                     gyroX = latestGyro[0], gyroY = latestGyro[1], gyroZ = latestGyro[2],
                     accelX = latestAccel[0], accelY = latestAccel[1], accelZ = latestAccel[2],
                     yaw   = rawDeg,
-                    pitch = Math.toDegrees(orientation[1].toDouble()).toFloat(),
-                    roll  = Math.toDegrees(orientation[2].toDouble()).toFloat(),
+                    pitch = 0f,
+                    roll  = 0f,
                     steeringAngle = smoothed
                 )
             }
 
-            Sensor.TYPE_ACCELEROMETER -> { latestAccel = event.values.clone() }
-            Sensor.TYPE_GYROSCOPE     -> { latestGyro  = event.values.clone() }
+            Sensor.TYPE_ACCELEROMETER -> { 
+                latestAccel = event.values.clone() 
+                // Fallback if no rotation vector is available:
+                // Accelerometer measures the UP vector directly.
+                if (gameRotVec == null && rotVec == null) {
+                    val rawDeg = Math.toDegrees(Math.atan2(latestAccel[1].toDouble(), latestAccel[0].toDouble())).toFloat()
+                    trackContinuous(rawDeg)
+                    val relative = if (isCalibrated) continuous - calibrationAngle else 0f
+                    smoothed = ALPHA * relative + (1f - ALPHA) * smoothed
+                    _sensorData.value = SensorData(
+                        accelX = latestAccel[0], accelY = latestAccel[1], accelZ = latestAccel[2],
+                        yaw = rawDeg, steeringAngle = smoothed
+                    )
+                }
+            }
+            Sensor.TYPE_GYROSCOPE -> { latestGyro = event.values.clone() }
         }
     }
 

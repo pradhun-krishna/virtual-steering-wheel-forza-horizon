@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ForzaWheel</string>
+    <string name="steering_angle">Steering Angle</string>
+    <string name="swipe_threshold">Swipe Threshold</string>
+    <string name="click_time_limit">Click Time Limit</string>
+</resources>

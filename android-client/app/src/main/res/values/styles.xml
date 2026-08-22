@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/racing_red</item>
+        <item name="colorPrimaryDark">@color/racing_carbon</item>
+        <item name="colorAccent">@color/racing_accent_yellow</item>
+        <item name="android:windowBackground">@color/racing_black</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+
+        <!-- Splash Screen (Android 12+) -->
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@drawable/splash_icon</item>
+        <item name="android:windowSplashScreenBackground" tools:targetApi="s">@color/racing_black</item>
+    </style>
+
+    <!-- Geneon Dialog Theme -->
+    <style name="GeneonDialogTheme" parent="Theme.MaterialComponents.Dialog.Alert">
+        <!-- Force Dark Scheme Colors -->
+        <item name="colorSurface">@color/geneon_black</item>
+        <item name="colorOnSurface">@color/geneon_white</item>
+        
+        <!-- Text Colors -->
+        <item name="android:textColor">@color/geneon_white</item>
+        <item name="android:textColorPrimary">@color/geneon_white</item>
+        <item name="android:textColorSecondary">@color/racing_silver</item>
+        
+        <!-- Dialog Background (Important) -->
+        <item name="android:background">@color/geneon_black</item>
+        
+        <!-- Buttons -->
+        <item name="colorPrimary">@color/geneon_orange</item>
+        <item name="colorOnPrimary">@color/geneon_black</item>
+        
+        <!-- Button Styles -->
+        <item name="buttonBarPositiveButtonStyle">@style/GeneonDialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/GeneonDialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/GeneonDialogButton</item>
+
+        <!-- List Item Style (Crucial for setItems visibility) -->
+        <item name="android:textColorAlertDialogListItem">@color/geneon_white</item>
+    </style>
+
+    <!-- Custom Button Style -->
+    <style name="GeneonDialogButton" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/geneon_orange</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>

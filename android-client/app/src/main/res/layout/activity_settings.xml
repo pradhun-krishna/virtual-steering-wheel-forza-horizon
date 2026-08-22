@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="#0A0A1A">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="SETTINGS"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Steering Angle -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Max Steering Angle (Lock to Lock)"
+        android:textColor="#AAAAAA" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+        <SeekBar
+            android:id="@+id/steering_angle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="1080"
+            android:min="180" />
+        <TextView
+            android:id="@+id/steering_angle_value"
+            android:layout_width="60dp"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:gravity="end" />
+    </LinearLayout>
+
+    <!-- Accelerator Sensitivity -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Accelerator Sensitivity"
+        android:textColor="#AAAAAA" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+        <SeekBar
+            android:id="@+id/accelerator_sensitivity"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="50"
+            android:min="1" />
+        <TextView
+            android:id="@+id/accelerator_value"
+            android:layout_width="60dp"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:gravity="end" />
+    </LinearLayout>
+
+    <!-- Brake Sensitivity -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Brake Sensitivity"
+        android:textColor="#AAAAAA" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="24dp">
+        <SeekBar
+            android:id="@+id/brake_sensitivity"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="50"
+            android:min="1" />
+        <TextView
+            android:id="@+id/brake_value"
+            android:layout_width="60dp"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:gravity="end" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/button_back"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="BACK"
+        android:backgroundTint="#333344" />
+
+</LinearLayout>

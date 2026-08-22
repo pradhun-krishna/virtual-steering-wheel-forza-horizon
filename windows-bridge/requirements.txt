@@ -1,0 +1,2 @@
+PyQt5==5.15.11
+pywin32; sys_platform == 'win32'

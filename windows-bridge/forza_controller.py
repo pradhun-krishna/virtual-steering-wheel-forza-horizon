@@ -3,24 +3,22 @@ ForzaWheel Controller Module
 Extends MobilWheel's vJoy integration with Forza Horizon 6-specific button mapping.
 
 Protocol commands from Android:
-  A:<float>     - Steering (-10.0 to +10.0, maps from ±maxAngle)
-  B:<0-100>     - Throttle (Gas)
-  C:<0-100>     - Brake
-  D             - Left Top button  (mapped: Shift Down / LB)
-  E             - Left Bottom button (mapped: Handbrake / A button)
-  F             - Right Top button (mapped: Shift Up / RB)
-  G             - Right Bottom button (mapped: Horn / Y button)
-  VOLUME_UP     - Volume Up (mapped: Look Back / RSB)
-  VOLUME_DOWN   - Volume Down (mapped: Camera Change / B button)
-  H             - Clutch On
-  I             - Clutch Off
-  J             - Rewind
-  K             - Pause/Menu
-  L             - Look Left
-  M             - Look Right
+  A:<float>     - Steering (-10.0 to +10.0)
+  B:<0-100>     - Throttle (Gas pedal)
+  C:<0-100>     - Brake pedal
+  D             - HANDBRAKE      (vJoy btn 1 = A button)
+  E             - SHIFT DOWN     (vJoy btn 5 = LB)
+  F             - SHIFT UP       (vJoy btn 6 = RB)
+  G             - HORN           (vJoy btn 4 = Y)
+  H             - LOOK BACK      (vJoy btn 9 = Back)
+  I             - CAMERA CHANGE  (vJoy btn 2 = B)
+  J             - REWIND         (vJoy btn 3 = X)
+  K             - CLUTCH PRESS   (vJoy btn 7)
+  VOLUME_UP     - RECALIBRATE    (handled on Android side only)
+  VOLUME_DOWN   - HORN shortcut  (same as G)
 
 vJoy Axis IDs (HID usage page):
-  0x30 = X  -> Steering (Left Stick X in XInput equiv)
+  0x30 = X  -> Steering
   0x31 = Y  -> Throttle
   0x32 = Z  -> Brake
   0x33 = Rx -> Clutch
@@ -32,8 +30,7 @@ vJoy Button IDs -> Forza XInput mapping:
   4  = Y     (Horn)
   5  = LB    (Shift Down)
   6  = RB    (Shift Up)
-  7  = LT button (reserved)
-  8  = RT button (reserved)
+  7  = Clutch / reserved
   9  = Back  (Look Back)
   10 = Start (Pause/Menu)
   11 = LSB   (Look Left)
@@ -104,36 +101,50 @@ VJOY_MIN    =     1
 VJOY_MAX    = 32767
 VJOY_CENTER = 16384
 
-# ─── Button mapping ───────────────────────────────────────────────────────────
-# Forza Horizon 6 default XInput mapping
-BTN_HANDBRAKE    = 1    # A
-BTN_CAMERA       = 2    # B
-BTN_REWIND       = 3    # X
-BTN_HORN         = 4    # Y
-BTN_SHIFT_DOWN   = 5    # LB
-BTN_SHIFT_UP     = 6    # RB
-BTN_LOOK_BACK    = 9    # Back
-BTN_PAUSE        = 10   # Start
-BTN_LOOK_LEFT    = 11   # LSB
-BTN_LOOK_RIGHT   = 12   # RSB
+# ─── Button mapping — Forza Horizon XInput layout ────────────────────────────
+# Forza uses standard XInput:
+#   A=1  B=2  X=3  Y=4  LB=5  RB=6  Back/View=9  Start=10  LSB=11  RSB=12
+BTN_HANDBRAKE  = 1    # A        → Handbrake
+BTN_CAMERA     = 2    # B        → Camera Change / Look Back (held)
+BTN_REWIND     = 3    # X        → Rewind
+BTN_HORN       = 4    # Y        → Horn / Headlights
+BTN_SHIFT_DOWN = 5    # LB       → Shift Down (manual)
+BTN_SHIFT_UP   = 6    # RB       → Shift Up (manual)
+BTN_VIEW       = 9    # Back/View → Anna assistant / View menu
+BTN_PAUSE      = 10   # Start     → Pause menu
+BTN_LSB        = 11   # LSB       → Look Left (can rebind)
+BTN_RSB        = 12   # RSB       → Look Back (can rebind)
+# D-pad → buttons 13-16 (bind in Forza custom controls)
+BTN_DPAD_UP    = 13
+BTN_DPAD_DOWN  = 14
+BTN_DPAD_LEFT  = 15
+BTN_DPAD_RIGHT = 16
 
-# ─── Protocol command → action map ───────────────────────────────────────────
+# ─── Protocol command → action description ────────────────────────────────────
+# Analog axes:  A=steering  B=throttle  C=brake
+# Clutch:       CLUTCH_ON (hold) / CLUTCH_OFF (release) → AXIS_CLUTCH
+# Buttons:      D,E,F,G,H,I,J — see btn_map in process_critical_message
 COMMAND_MAP = {
     'A': 'steering',
     'B': 'throttle',
     'C': 'brake',
-    'D': 'shift_down',      # Left Top  → Shift Down (LB)
-    'E': 'handbrake',       # Left Bottom → Handbrake (A)
-    'F': 'shift_up',        # Right Top → Shift Up (RB)
-    'G': 'horn',            # Right Bottom → Horn (Y)
-    'VOLUME_UP':   'look_back',    # Physical volume up → Look Back
-    'VOLUME_DOWN': 'camera',       # Physical volume down → Camera Change
-    'H': 'clutch_on',
-    'I': 'clutch_off',
-    'J': 'rewind',
-    'K': 'pause',
-    'L': 'look_left',
-    'M': 'look_right',
+    'D': 'handbrake',     # A  button → Handbrake
+    'E': 'shift_down',    # LB button → Shift Down
+    'F': 'shift_up',      # RB button → Shift Up
+    'G': 'horn',          # Y  button → Horn
+    'H': 'look_back',     # RSB       → Look Back
+    'I': 'camera',        # B  button → Camera Change
+    'J': 'rewind',        # X  button → Rewind
+    'CLUTCH_ON':  'clutch_on',
+    'CLUTCH_OFF': 'clutch_off',
+    'BACK_BTN':   'view',       # View/Back → Anna
+    'START':      'pause',
+    'ANNA':       'view',       # same as BACK_BTN
+    'DPAD_U':     'dpad_up',
+    'DPAD_D':     'dpad_down',
+    'DPAD_L':     'dpad_left',
+    'DPAD_R':     'dpad_right',
+    'VOLUME_DOWN': 'horn',
 }
 
 # ─── State tracking ───────────────────────────────────────────────────────────
@@ -272,30 +283,43 @@ def map_pedal(percent_0_100):
 
 # ─── Message processing ───────────────────────────────────────────────────────
 def process_critical_message(device_id, message, update_ui_callback=None):
-    """Handle button presses (D,E,F,G,VOLUME_UP,VOLUME_DOWN,H,I,J,K,L,M)."""
+    """Handle button presses and clutch axis control."""
     command = message.strip()
     logging.debug(f"Critical: {command}")
 
-    btn_map = {
-        'D': BTN_SHIFT_DOWN,
-        'E': BTN_HANDBRAKE,
-        'F': BTN_SHIFT_UP,
-        'G': BTN_HORN,
-        'VOLUME_UP':   BTN_LOOK_BACK,
-        'VOLUME_DOWN': BTN_CAMERA,
-        'J': BTN_REWIND,
-        'K': BTN_PAUSE,
-        'L': BTN_LOOK_LEFT,
-        'M': BTN_LOOK_RIGHT,
-    }
-
-    if command == 'H':    # Clutch on
+    # Clutch — axis-based (hold = engaged, release = disengaged)
+    if command == 'CLUTCH_ON':
         set_axis(device_id, AXIS_CLUTCH, VJOY_MAX)
         if update_ui_callback: update_ui_callback('clutch', 100)
-    elif command == 'I':  # Clutch off
+        return
+    if command == 'CLUTCH_OFF':
         set_axis(device_id, AXIS_CLUTCH, VJOY_MIN)
         if update_ui_callback: update_ui_callback('clutch', 0)
-    elif command in btn_map:
+        return
+
+    # Button commands → vJoy button IDs
+    # NOTE on look-back vs Anna:
+    #   H  → RSB (btn 12) = Look Back while driving
+    #   BACK_BTN / ANNA → View/Back (btn 9) = Anna assistant
+    btn_map = {
+        'D':         BTN_HANDBRAKE,  # A   → Handbrake
+        'E':         BTN_SHIFT_DOWN, # LB  → Shift Down
+        'F':         BTN_SHIFT_UP,   # RB  → Shift Up
+        'G':         BTN_HORN,       # Y   → Horn
+        'H':         BTN_RSB,        # RSB → Look Back (hold B / RSB in Forza)
+        'I':         BTN_CAMERA,     # B   → Camera Change
+        'J':         BTN_REWIND,     # X   → Rewind
+        'BACK_BTN':  BTN_VIEW,       # View/Back → Anna
+        'ANNA':      BTN_VIEW,       # View/Back → Anna (alias)
+        'START':     BTN_PAUSE,      # Start → Pause
+        'DPAD_U':    BTN_DPAD_UP,
+        'DPAD_D':    BTN_DPAD_DOWN,
+        'DPAD_L':    BTN_DPAD_LEFT,
+        'DPAD_R':    BTN_DPAD_RIGHT,
+        'VOLUME_DOWN': BTN_HORN,     # Volume down → Horn
+    }
+
+    if command in btn_map:
         btn_id = btn_map[command]
         btn_name = COMMAND_MAP.get(command, command.lower())
         pulse_button(device_id, btn_id, 80)
@@ -303,6 +327,7 @@ def process_critical_message(device_id, message, update_ui_callback=None):
         if update_ui_callback:
             update_ui_callback(btn_name, True)
             threading.Timer(0.1, update_ui_callback, args=(btn_name, False)).start()
+
 
 def process_non_critical_message(device_id, message, update_ui_callback=None):
     """Handle analog inputs (A=steering, B=throttle, C=brake)."""
@@ -418,11 +443,14 @@ def handle_client(conn, addr, update_ui_callback=None):
                         msg = line.strip()
                         if not msg: continue
                         cmd = msg.split(':')[0]
-                        if cmd in ('D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-                                   'VOLUME_UP', 'VOLUME_DOWN'):
-                            device_states[device_id]['critical_queue'].append(msg)
-                        else:
+                        # ── Route to correct queue ──────────────────────────────
+                        # Non-critical: analog axes with float/int value (A, B, C)
+                        # Critical: all button presses (single OR multi-word commands)
+                        ANALOG_CMDS = {'A', 'B', 'C'}
+                        if cmd in ANALOG_CMDS:
                             device_states[device_id]['non_critical_queue'].append(msg)
+                        else:
+                            device_states[device_id]['critical_queue'].append(msg)
                 except socket.timeout:
                     if shutdown_event.is_set(): break
     except Exception as e:

@@ -41,7 +41,8 @@
         <activity
             android:name=".SteeringWheelActivity"
             android:exported="false"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:windowSoftInputMode="stateHidden|adjustNothing" />
 
         <!-- Settings -->

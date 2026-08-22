@@ -432,7 +432,7 @@ class ForzaWheelServer(QMainWindow):
                     "1. Restart this application\n"
                     "2. In vJoy Config, ensure device 1 has:\n"
                     "   - X, Y, Z, Rx axes enabled\n"
-                    "   - At least 12 buttons")
+                    "   - At least 16 buttons (for D-pad support)")
             else:
                 QMessageBox.warning(self, "vJoy", f"vJoySetup.exe not found at:\n{vjoy_exe}")
 

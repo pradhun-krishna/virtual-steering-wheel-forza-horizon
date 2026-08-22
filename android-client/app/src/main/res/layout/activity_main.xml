@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ForzaWheel — Main HUD Layout (Landscape)
+
+    3-panel layout:
+    [ LEFT PANEL 35% ]  [ CENTER 25% ]  [ RIGHT PANEL 35% ]
+
+    Left  = BRAKE slider + HANDBRAKE, LOOK, REWIND, SHIFT↓
+    Center = Gamepad face area: D-pad, Camera, START/BACK, Calibrate, IP
+    Right = GAS slider + SHIFT↑, CAMERA, HORN, CLUTCH
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="#080811"
+    tools:context=".SteeringWheelActivity">
+
+    <!-- ═════════════════════════════════ LEFT PANEL ════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/left_panel"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="35"
+        android:orientation="vertical"
+        android:background="#0C0810">
+
+        <!-- Top buttons: HANDBRAKE | LOOK BACK -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:orientation="horizontal"
+            android:padding="4dp">
+            <Button
+                android:id="@+id/btn_handbrake"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="HAND\nBRAKE"
+                android:textSize="10sp"
+                android:textColor="#FF5555"
+                android:textAllCaps="true"
+                android:backgroundTint="#2D0A0A"
+                android:stateListAnimator="@null"
+                android:layout_marginEnd="3dp" />
+            <Button
+                android:id="@+id/btn_look"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="LOOK\nBACK"
+                android:textSize="10sp"
+                android:textColor="#AAAACC"
+                android:textAllCaps="true"
+                android:backgroundTint="#141428"
+                android:stateListAnimator="@null"
+                android:layout_marginStart="3dp" />
+        </LinearLayout>
+
+        <!-- BRAKE touch zone -->
+        <FrameLayout
+            android:id="@+id/brake_touch_zone"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#110508"
+            android:clipChildren="false">
+            <View
+                android:id="@+id/brake_fill"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_gravity="bottom"
+                android:background="@drawable/brake_fill_gradient" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|center_horizontal"
+                android:text="BRAKE"
+                android:textSize="10sp"
+                android:textColor="#FF4444"
+                android:letterSpacing="0.25"
+                android:gravity="center"
+                android:padding="8dp" />
+            <TextView
+                android:id="@+id/brake_pct"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="0%"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF88"
+                android:gravity="center" />
+        </FrameLayout>
+
+        <!-- Bottom buttons: REWIND | SHIFT DOWN -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:orientation="horizontal"
+            android:padding="4dp">
+            <Button
+                android:id="@+id/btn_rewind"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="⟲\nREWIND"
+                android:textSize="10sp"
+                android:textColor="#AAAACC"
+                android:textAllCaps="false"
+                android:backgroundTint="#141428"
+                android:stateListAnimator="@null"
+                android:layout_marginEnd="3dp" />
+            <Button
+                android:id="@+id/btn_shift_down"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="LB\nSHIFT ▼"
+                android:textSize="10sp"
+                android:textColor="#FFDD66"
+                android:textAllCaps="false"
+                android:backgroundTint="#1C1800"
+                android:stateListAnimator="@null"
+                android:layout_marginStart="3dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#1A1A3A" />
+
+    <!-- ═════════════════════════════ CENTER — GAMEPAD ══════════════════════ -->
+    <LinearLayout
+        android:id="@+id/center_panel"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="25"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:background="#07070F"
+        android:padding="5dp">
+
+        <!-- Tiny connection/utility row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="3dp">
+            <TextView
+                android:id="@+id/connectionLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="● OFFLINE"
+                android:textSize="8sp"
+                android:textColor="#FF4444"
+                android:textStyle="bold"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Utility buttons: RECALIBRATE | CHANGE IP -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:orientation="horizontal"
+            android:layout_marginBottom="5dp">
+            <Button
+                android:id="@+id/btn_calibrate"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="⊕ RECAL"
+                android:textSize="8sp"
+                android:textColor="#4488FF"
+                android:backgroundTint="#0D1A33"
+                android:stateListAnimator="@null"
+                android:layout_marginEnd="2dp" />
+            <Button
+                android:id="@+id/btn_change_ip"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="⚙ IP"
+                android:textSize="8sp"
+                android:textColor="#555577"
+                android:backgroundTint="#0A0A18"
+                android:stateListAnimator="@null"
+                android:layout_marginStart="2dp" />
+        </LinearLayout>
+
+        <!-- Camera Change (prominent, full width) -->
+        <Button
+            android:id="@+id/btn_camera"
+            android:layout_width="match_parent"
+            android:layout_height="38dp"
+            android:text="📷 CAMERA"
+            android:textSize="9sp"
+            android:textColor="#AACCFF"
+            android:textAllCaps="false"
+            android:backgroundTint="#0A1428"
+            android:stateListAnimator="@null"
+            android:layout_marginBottom="6dp" />
+
+        <!-- D-PAD (3×3 grid with 4 directional buttons) -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="D-PAD"
+            android:textSize="7sp"
+            android:textColor="#222244"
+            android:gravity="center"
+            android:letterSpacing="0.2"
+            android:layout_marginBottom="2dp" />
+
+        <!-- Row 1: (space) UP (space) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal">
+            <Space android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+            <Button
+                android:id="@+id/btn_dpad_up"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="▲"
+                android:textSize="14sp"
+                android:textColor="#CCCCEE"
+                android:backgroundTint="#141430"
+                android:stateListAnimator="@null"
+                android:padding="0dp" />
+            <Space android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+        </LinearLayout>
+
+        <!-- Row 2: LEFT (center space) RIGHT -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/btn_dpad_left"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="◀"
+                android:textSize="14sp"
+                android:textColor="#CCCCEE"
+                android:backgroundTint="#141430"
+                android:stateListAnimator="@null"
+                android:padding="0dp" />
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="#0F0F22" />
+            <Button
+                android:id="@+id/btn_dpad_right"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="▶"
+                android:textSize="14sp"
+                android:textColor="#CCCCEE"
+                android:backgroundTint="#141430"
+                android:stateListAnimator="@null"
+                android:padding="0dp" />
+        </LinearLayout>
+
+        <!-- Row 3: (space) DOWN (space) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:layout_marginBottom="6dp">
+            <Space android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+            <Button
+                android:id="@+id/btn_dpad_down"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="▼"
+                android:textSize="14sp"
+                android:textColor="#CCCCEE"
+                android:backgroundTint="#141430"
+                android:stateListAnimator="@null"
+                android:padding="0dp" />
+            <Space android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
+        </LinearLayout>
+
+        <!-- START | BACK (system buttons) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/btn_start"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="START"
+                android:textSize="9sp"
+                android:textColor="#CCCCCC"
+                android:textAllCaps="true"
+                android:backgroundTint="#1A1A1A"
+                android:stateListAnimator="@null"
+                android:layout_marginEnd="2dp" />
+            <Button
+                android:id="@+id/btn_back_btn"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="BACK"
+                android:textSize="9sp"
+                android:textColor="#CCCCCC"
+                android:textAllCaps="true"
+                android:backgroundTint="#1A1A1A"
+                android:stateListAnimator="@null"
+                android:layout_marginStart="2dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#1A1A3A" />
+
+    <!-- ════════════════════════════════ RIGHT PANEL ═════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/right_panel"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="35"
+        android:orientation="vertical"
+        android:background="#080C0A">
+
+        <!-- Top buttons: SHIFT UP | HORN -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:orientation="horizontal"
+            android:padding="4dp">
+            <Button
+                android:id="@+id/btn_shift_up"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="RB\nSHIFT ▲"
+                android:textSize="10sp"
+                android:textColor="#FFDD66"
+                android:textAllCaps="false"
+                android:backgroundTint="#1C1800"
+                android:stateListAnimator="@null"
+                android:layout_marginEnd="3dp" />
+            <Button
+                android:id="@+id/btn_horn"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Y\nHORN"
+                android:textSize="10sp"
+                android:textColor="#AACCFF"
+                android:textAllCaps="false"
+                android:backgroundTint="#0A1428"
+                android:stateListAnimator="@null"
+                android:layout_marginStart="3dp" />
+        </LinearLayout>
+
+        <!-- GAS touch zone -->
+        <FrameLayout
+            android:id="@+id/gas_touch_zone"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#08110A"
+            android:clipChildren="false">
+            <View
+                android:id="@+id/gas_fill"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_gravity="bottom"
+                android:background="@drawable/gas_fill_gradient" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|center_horizontal"
+                android:text="GAS"
+                android:textSize="10sp"
+                android:textColor="#44FF66"
+                android:letterSpacing="0.25"
+                android:gravity="center"
+                android:padding="8dp" />
+            <TextView
+                android:id="@+id/gas_pct"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="0%"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF88"
+                android:gravity="center" />
+        </FrameLayout>
+
+        <!-- Bottom buttons: CLUTCH | REWIND (secondary) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:orientation="horizontal"
+            android:padding="4dp">
+            <Button
+                android:id="@+id/btn_clutch"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="X\nCLUTCH"
+                android:textSize="10sp"
+                android:textColor="#AAAACC"
+                android:textAllCaps="false"
+                android:backgroundTint="#141428"
+                android:stateListAnimator="@null"
+                android:layout_marginEnd="3dp" />
+            <Button
+                android:id="@+id/btn_anna"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="LT\nANNA"
+                android:textSize="10sp"
+                android:textColor="#AAAACC"
+                android:textAllCaps="false"
+                android:backgroundTint="#141428"
+                android:stateListAnimator="@null"
+                android:layout_marginStart="3dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

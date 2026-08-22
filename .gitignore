@@ -7,3 +7,6 @@
 # Ignore OS files
 .DS_Store
 Thumbs.db
+
+# Temp repo
+temp_repo/

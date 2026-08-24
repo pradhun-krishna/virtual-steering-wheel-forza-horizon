@@ -25,7 +25,7 @@ class TcpClient(private val scope: CoroutineScope) {
     private var outStream: DataOutputStream? = null
 
     // Channel for buffering commands
-    private val commandChannel = Channel<String>(capacity = 100)
+    private val commandChannel = Channel<String>(capacity = Channel.UNLIMITED)
     private var senderJob: Job? = null
 
     sealed class ConnectionState {

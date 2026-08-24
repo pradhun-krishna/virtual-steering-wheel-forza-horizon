@@ -35,6 +35,13 @@ try:
 except Exception as e:
     logging.error(f"ViGEm modules could not be loaded: {e}")
 
+VJOY_AVAILABLE = False
+try:
+    import pyvjoy
+    VJOY_AVAILABLE = True
+except Exception as e:
+    logging.warning(f"pyvjoy could not be loaded: {e}. Steering wheel bypass requires vJoy driver.")
+
 # ─── State tracking ───────────────────────────────────────────────────────────
 class DeviceState:
     def __init__(self):
@@ -54,92 +61,283 @@ KEEP_DEVICE_ON_DISCONNECT = True
 
 shutdown_event = threading.Event()
 
-# Global gamepad instance
+# Global gamepad instances
 gamepad = None
+vj = None
 
 # ─── ViGEm acquire/release ────────────────────────────────────────────────────
-def acquire_vjd(device_id):
-    global gamepad
-    if not VIGEM_AVAILABLE:
-        logging.error("Cannot acquire device: ViGEm is not available.")
-        return False
-    
-    if device_id in acquired_devices:
-        return True
 
-    try:
-        if gamepad is None:
-            gamepad = VX360Gamepad()
-            gamepad.reset()
-            gamepad.update()
+def acquire_vjd(device_id=1):
+    global gamepad, vj
+    
+    if gamepad is None and VIGEM_AVAILABLE:
+        gamepad = VX360Gamepad()
+        gamepad.reset()
+        gamepad.update()
+
+    if not VJOY_AVAILABLE:
+        if device_id in acquired_devices: return True
         acquired_devices.add(device_id)
         logging.info(f"ViGEm Virtual Xbox Controller acquired (Assigned to ID {device_id}).")
         return True
+        
+    try:
+        if pyvjoy._sdk.vJoyEnabled():
+            vj = pyvjoy.VJoyDevice(device_id)
+            # Initialize all axes to dead center (16384) instead of 0 (-100%)
+            vj.data.wAxisX = 16384
+            vj.data.wAxisY = 16384
+            vj.data.wAxisZ = 16384
+            vj.data.wAxisXRot = 16384
+            vj.data.wAxisYRot = 16384
+            vj.data.wAxisZRot = 16384
+            vj.data.wSlider = 16384
+            vj.data.wDial = 16384
+            vj.data.lButtons = 0
+            vj.update()
+            logging.info("vJoy Virtual Steering Wheel acquired.")
+            acquired_devices.add(device_id)
+            return True
     except Exception as e:
-        logging.error(f"Failed to acquire ViGEm device (Is ViGEmBus installed?): {e}")
-        return False
+        logging.warning(f"Could not open vJoy Device {device_id}: {e}")
+        vj = None
+    return False
 
 def relinquish_vjd(device_id):
-    global gamepad
+    global gamepad, vj
     try:
         acquired_devices.discard(device_id)
         if len(acquired_devices) == 0 and gamepad is not None:
             gamepad.reset()
             gamepad.update()
-            # Note: We don't delete the gamepad object so we can reuse the bus connection
     except Exception as e:
         logging.error(f"Relinquish error: {e}")
 
 # ─── Axis & button setters ───────────────────────────────────────────────────
+mapping_mode = False
+
+def set_mapping_mode(enabled):
+    global mapping_mode
+    mapping_mode = enabled
+    if vj:
+        try:
+            if enabled:
+                # Lock resting state to 50% to avoid Forza auto-detecting
+                vj.data.wAxisX = 16384
+                vj.data.wAxisXRot = 16384
+                vj.data.wAxisYRot = 16384
+                # Also force gas/brake to rest at 50% when mapping mode turns on
+                vj.data.wAxisY = 16384
+                vj.data.wAxisZ = 16384
+                vj.data.wAxisZRot = 16384
+            else:
+                # Restore full pedal range resting state (0%)
+                vj.data.wAxisY = 0
+                vj.data.wAxisZ = 0
+                vj.data.wAxisZRot = 0
+            vj.update()
+        except: pass
+
+last_smoothed_steering = 16384.0
+
 def set_steering(server_value):
-    if gamepad is None: return
-    # Android value: -10.0 (Left) to +10.0 (Right)
-    # XInput value: -32768 to 32767
+    global last_smoothed_steering
+    if mapping_mode:
+        last_smoothed_steering = 16384.0
+        return
     clamped = max(-10.0, min(10.0, float(server_value)))
-    val = int((clamped / 10.0) * 32767)
-    gamepad.left_joystick(x_value=val, y_value=0)
-    gamepad.update()
+    
+    # Small deadzone so resting the phone perfectly straight is easy
+    if abs(clamped) < 0.2:
+        clamped = 0.0
+        
+    if vj:
+        target_val = ((clamped + 10.0) / 20.0) * 32768
+        
+        # Adaptive Exponential Moving Average (EMA) for flawless motion
+        diff = abs(target_val - last_smoothed_steering)
+        if diff < 30:
+            smoothed_val = target_val # Snap when extremely close to prevent floating
+        else:
+            if diff < 200:
+                alpha = 0.05 # Extreme smoothing for micro-jitters (hand shake)
+            elif diff < 800:
+                alpha = 0.20 # Medium smoothing for slight adjustments
+            else:
+                alpha = 0.45 # Fast response for sharp, intentional turns
+            smoothed_val = (alpha * target_val) + ((1.0 - alpha) * last_smoothed_steering)
+            
+        last_smoothed_steering = smoothed_val
+        
+        try:
+            vj.data.wAxisX = int(smoothed_val)
+            vj.update()
+        except: pass
+    elif gamepad:
+        val = int((clamped / 10.0) * 32767)
+        gamepad.left_joystick(x_value=val, y_value=0)
+        gamepad.update()
 
 def set_gas(percent_0_100):
-    if gamepad is None: return
-    # XInput RT: 0 to 255
     clamped = max(0, min(100, int(percent_0_100)))
-    val = int((clamped / 100.0) * 255)
-    gamepad.right_trigger(value=val)
-    gamepad.update()
+    if vj:
+        if mapping_mode:
+            val = int(16384 + (clamped / 100.0) * 16384)
+        else:
+            val = int((clamped / 100.0) * 32768)
+        try:
+            vj.data.wAxisY = val
+            vj.update()
+        except: pass
+    elif gamepad:
+        val = int((clamped / 100.0) * 255)
+        gamepad.right_trigger(value=val)
+        gamepad.update()
 
 def set_brake(percent_0_100):
-    if gamepad is None: return
-    # XInput LT: 0 to 255
     clamped = max(0, min(100, int(percent_0_100)))
-    val = int((clamped / 100.0) * 255)
-    gamepad.left_trigger(value=val)
-    gamepad.update()
+    if vj:
+        if mapping_mode:
+            val = int(16384 + (clamped / 100.0) * 16384)
+        else:
+            val = int((clamped / 100.0) * 32768)
+        try:
+            vj.data.wAxisZ = val
+            vj.update()
+        except: pass
+    elif gamepad:
+        val = int((clamped / 100.0) * 255)
+        gamepad.left_trigger(value=val)
+        gamepad.update()
+
+def set_clutch(percent_0_100):
+    clamped = max(0, min(100, int(percent_0_100)))
+    if vj:
+        if mapping_mode:
+            val = int(16384 + (clamped / 100.0) * 16384)
+        else:
+            val = int((clamped / 100.0) * 32768)
+        try:
+            vj.data.wAxisZRot = val
+            vj.update()
+        except: pass
+    elif gamepad:
+        val = int((clamped / 100.0) * 255)
+        gamepad.left_trigger(value=val)
+        gamepad.update()
 
 def set_right_joystick(x_pct, y_pct):
-    if gamepad is None: return
-    # XInput axes: -32768 to 32767
-    x_val = int((max(-100, min(100, x_pct)) / 100.0) * 32767)
-    y_val = int((max(-100, min(100, y_pct)) / 100.0) * 32767)
-    gamepad.right_joystick(x_value=x_val, y_value=y_val)
-    gamepad.update()
+    # Convert joystick swipes into discrete button presses (Buttons 10, 11, 12).
+    if mapping_mode:
+        # SPECIAL OVERRIDE: During mapping mode, use the Right Joystick to 
+        # send mathematically perfect steering values. This prevents the user 
+        # from accidentally locking in a tilted default center state in Forza.
+        if vj:
+            if x_pct < -50:
+                vj.data.wAxisX = 0
+            elif x_pct > 50:
+                vj.data.wAxisX = 32768
+            else:
+                vj.data.wAxisX = 16384
+            try: vj.update()
+            except: pass
+        return
+    if vj:
+        # Clear bits safely for ctypes c_ulong
+        mask = (1 << 9) | (1 << 10) | (1 << 11)
+        vj.data.lButtons = vj.data.lButtons & (~mask & 0xFFFFFFFF)
+        
+        # Look Left = Button 10
+        if x_pct < -30: vj.data.lButtons |= (1 << 9)
+        # Look Right = Button 11
+        elif x_pct > 30: vj.data.lButtons |= (1 << 10)
+        
+        # Look Back = Button 12
+        if y_pct > 30: vj.data.lButtons |= (1 << 11)
+        
+        try: vj.update()
+        except: pass
 
-def set_button(button_flag, state):
-    if gamepad is None: return
-    if state:
-        gamepad.press_button(button=button_flag)
-    else:
-        gamepad.release_button(button=button_flag)
-    gamepad.update()
+def update_button(btn_key, pressed):
+    if vj:
+        btn_mapping = {
+            'shift_up': 1, 
+            'shift_down': 2, 
+            'handbrake': 3,
+            'rewind': 4, 
+            'horn': 5, 
+            'pause': 6,
+            'camera': 7, 
+            'clutch': 8, 
+            'view': 9,
+            'dpad_up': 13,
+            'dpad_down': 14,
+            'dpad_left': 15,
+            'dpad_right': 16
+        }
+        if btn_key in btn_mapping:
+            bit = 1 << (btn_mapping[btn_key] - 1)
+            if pressed: 
+                vj.data.lButtons |= bit
+            else: 
+                vj.data.lButtons = vj.data.lButtons & (~bit & 0xFFFFFFFF)
+            try: vj.update()
+            except: pass
+    elif gamepad:
+        if btn_key in BUTTON_MAP:
+            btn = BUTTON_MAP[btn_key]
+            if pressed: gamepad.press_button(button=btn)
+            else: gamepad.release_button(button=btn)
+            gamepad.update()
 
-def pulse_button(button_flag, duration_ms):
-    set_button(button_flag, True)
-    threading.Timer(duration_ms / 1000.0, set_button, args=(button_flag, False)).start()
+def update_dpad(direction):
+    if vj:
+        dpad_mapping = {
+            XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP: 11,
+            XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN: 12,
+            XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT: 13,
+            XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT: 14
+        }
+        for bit_idx in dpad_mapping.values():
+            vj.data.lButtons &= ~(1 << (bit_idx - 1))
+        if direction in dpad_mapping:
+            vj.data.lButtons |= (1 << (dpad_mapping[direction] - 1))
+        try: vj.update()
+        except: pass
+    elif gamepad:
+        gamepad.release_button(button=XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP)
+        gamepad.release_button(button=XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN)
+        gamepad.release_button(button=XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT)
+        gamepad.release_button(button=XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT)
+        if direction is not None: gamepad.press_button(button=direction)
+        gamepad.update()
+
+
 
 def zero_all(device_id):
-    if gamepad is not None:
-        gamepad.reset()
+    if gamepad:
+        gamepad.left_joystick(x_value=0, y_value=0)
+        gamepad.right_joystick(x_value=0, y_value=0)
+        gamepad.right_trigger(value=0)
+        gamepad.left_trigger(value=0)
+        for btn in BUTTON_MAP.values():
+            gamepad.release_button(button=btn)
+        update_dpad(None)
         gamepad.update()
+    
+    if vj:
+        try:
+            vj.data.wAxisX = 16384
+            vj.data.wAxisY = 16384
+            vj.data.wAxisZ = 16384
+            vj.data.wAxisXRot = 16384
+            vj.data.wAxisYRot = 16384
+            vj.data.wAxisZRot = 16384
+            vj.data.wSlider = 16384
+            vj.data.wDial = 16384
+            vj.data.lButtons = 0
+            vj.update()
+        except: pass
 
 # ─── Protocol mapping ────────────────────────────────────────────────────────
 COMMAND_MAP = {
@@ -158,10 +356,26 @@ COMMAND_MAP = {
     'DPAD_R': 'dpad_right',
 }
 
+BUTTON_MAP = {
+    'handbrake': XUSB_BUTTON.XUSB_GAMEPAD_A,
+    'shift_down': XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
+    'shift_up': XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
+    'horn': XUSB_BUTTON.XUSB_GAMEPAD_Y,
+    'rewind': XUSB_BUTTON.XUSB_GAMEPAD_X,
+    'clutch': XUSB_BUTTON.XUSB_GAMEPAD_A,
+    'camera': XUSB_BUTTON.XUSB_GAMEPAD_B,
+    'pause': XUSB_BUTTON.XUSB_GAMEPAD_START,
+    'view': XUSB_BUTTON.XUSB_GAMEPAD_BACK,
+    'dpad_up': XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP,
+    'dpad_down': XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN,
+    'dpad_left': XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT,
+    'dpad_right': XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT
+}
+
 def get_button_flag(command):
     if not VIGEM_AVAILABLE: return None
     mapping = {
-        'HANDBRAKE': XUSB_BUTTON.XUSB_GAMEPAD_A,              # User preferred A for handbrake
+        'HANDBRAKE': XUSB_BUTTON.XUSB_GAMEPAD_A,
         'LB':        XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
         'RB':        XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
         'BTN_Y':     XUSB_BUTTON.XUSB_GAMEPAD_Y,
@@ -174,7 +388,6 @@ def get_button_flag(command):
         'DPAD_D':    XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN,
         'DPAD_L':    XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT,
         'DPAD_R':    XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT,
-        # Old fallbacks
         'D':         XUSB_BUTTON.XUSB_GAMEPAD_A,
         'E':         XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
         'F':         XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
@@ -203,20 +416,13 @@ def process_critical_message(device_id, message, update_ui_callback=None):
         btn_name = COMMAND_MAP.get(base_cmd, base_cmd.lower())
         
         if is_on:
-            set_button(btn_flag, True)
+            update_button(btn_name, True)
             logging.info(f"Button {base_cmd} (PRESSED)")
             if update_ui_callback: update_ui_callback(btn_name, True)
         elif is_off:
-            set_button(btn_flag, False)
+            update_button(btn_name, False)
             logging.info(f"Button {base_cmd} (RELEASED)")
             if update_ui_callback: update_ui_callback(btn_name, False)
-        else:
-            # Fallback for old pulse commands if needed
-            pulse_button(btn_flag, 80)
-            logging.info(f"Button {base_cmd} → {btn_name}")
-            if update_ui_callback:
-                update_ui_callback(btn_name, True)
-                threading.Timer(0.1, update_ui_callback, args=(btn_name, False)).start()
 
 def process_non_critical_message(device_id, message, update_ui_callback=None):
     state = device_states.get(device_id)
@@ -272,7 +478,7 @@ def handle_non_critical_messages(device_id, update_ui_callback=None):
             if state is None: break
             if state.non_critical_queue:
                 msg = state.non_critical_queue.popleft()
-                state.non_critical_queue.clear()
+                # Do NOT clear the queue here, otherwise batched zero-values (release events) are dropped!
                 process_non_critical_message(device_id, msg, update_ui_callback)
             else:
                 time.sleep(0.01)

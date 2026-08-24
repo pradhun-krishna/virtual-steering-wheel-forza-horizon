@@ -60,12 +60,23 @@ class ForzaWheelServer(QMainWindow):
         self._build_ui()
         self._connect_signals()
         self._start_log_poller()
-        
         QTimer.singleShot(500, self._check_vigem_on_startup)
+        QTimer.singleShot(1000, self._check_vjoy_on_startup)
         
     def _check_vigem_on_startup(self):
         if not controller.VIGEM_AVAILABLE:
             self._setup_vigem()
+            
+    def _check_vjoy_on_startup(self):
+        if not controller.VJOY_AVAILABLE:
+            self._setup_vjoy()
+            return
+        try:
+            import pyvjoy
+            # Test if device 1 is actually configured and accessible
+            _test = pyvjoy.VJoyDevice(1)
+        except Exception:
+            self._setup_vjoy()
 
     # ── Fonts ─────────────────────────────────────────────────────────────────
     def _setup_fonts(self):
@@ -139,17 +150,18 @@ class ForzaWheelServer(QMainWindow):
         ctrl = QHBoxLayout()
         self.btn_start = QPushButton("▶  START SERVER")
         self.btn_stop  = QPushButton("■  STOP SERVER")
-        self.btn_vigem = QPushButton("⚙  Setup ViGEmBus (Required)")
+        self.btn_vigem = QPushButton("⚙  Setup ViGEmBus")
+        self.btn_vjoy  = QPushButton("⚙  Setup vJoy (Steering)")
         self.btn_stop.setEnabled(False)
         self.btn_start.setStyleSheet("background:#0e2a0e; color:#44ff88; border-color:#225522;")
         self.btn_stop.setStyleSheet( "background:#2a0e0e; color:#ff4444; border-color:#552222;")
-        for btn in (self.btn_start, self.btn_stop, self.btn_vigem):
+        for btn in (self.btn_start, self.btn_stop, self.btn_vigem, self.btn_vjoy):
             btn.setFont(QFont("Segoe UI", 10, QFont.Bold))
             btn.setMinimumHeight(36)
             ctrl.addWidget(btn)
         root.addLayout(ctrl)
 
-        # ── IP display ────────────────────────────────────────────────────────
+        # ── IP display & options ──────────────────────────────────────────────
         ip_row = QHBoxLayout()
         ip_lbl  = QLabel("Server IP:")
         ip_lbl.setFont(self.font_label)
@@ -159,11 +171,17 @@ class ForzaWheelServer(QMainWindow):
         port_lbl = QLabel("Port: 12345")
         port_lbl.setFont(self.font_label)
         port_lbl.setStyleSheet("color:#888;")
+        
+        self.mapping_checkbox = QCheckBox("Mapping Mode (Lock Steering Axis)")
+        self.mapping_checkbox.setToolTip("Check this while mapping Gas/Brake to prevent the steering axis from accidentally binding.")
+        self.mapping_checkbox.stateChanged.connect(self._on_mapping_mode_changed)
+
         ip_row.addWidget(ip_lbl)
         ip_row.addWidget(self.ip_value)
         ip_row.addSpacing(20)
         ip_row.addWidget(port_lbl)
         ip_row.addStretch()
+        ip_row.addWidget(self.mapping_checkbox)
         root.addLayout(ip_row)
 
         sep2 = QFrame(); sep2.setFrameShape(QFrame.HLine); root.addWidget(sep2)
@@ -309,7 +327,10 @@ class ForzaWheelServer(QMainWindow):
 
         return panel
 
-    # ── Signals ───────────────────────────────────────────────────────────────
+    def _on_mapping_mode_changed(self, state):
+        import forza_controller as controller
+        controller.set_mapping_mode(state == Qt.Checked)
+        
     def _connect_signals(self):
         signals.log_message.connect(self._append_log)
         signals.ui_update.connect(self._on_ui_update)
@@ -319,6 +340,7 @@ class ForzaWheelServer(QMainWindow):
         self.btn_start.clicked.connect(self._start_server)
         self.btn_stop.clicked.connect(self._stop_server)
         self.btn_vigem.clicked.connect(self._setup_vigem)
+        self.btn_vjoy.clicked.connect(self._setup_vjoy)
 
     # ── Log poller ────────────────────────────────────────────────────────────
     def _start_log_poller(self):
@@ -424,8 +446,8 @@ class ForzaWheelServer(QMainWindow):
             return
 
         reply = QMessageBox.question(self, 'Install ViGEmBus', 
-            "The Virtual Gamepad Emulation Bus (ViGEmBus) driver is missing or could not be loaded.\n\n"
-            "This driver is required to emulate an Xbox 360 controller natively.\n\n"
+            "The Virtual Gamepad Emulation Bus (ViGEmBus) driver is missing.\n\n"
+            "This driver is required for Gas, Brake, and Buttons to work natively.\n\n"
             "Would you like to automatically download and install it now?", 
             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             
@@ -440,15 +462,53 @@ class ForzaWheelServer(QMainWindow):
             try:
                 urllib.request.urlretrieve(installer_url, str(installer_path))
                 self._append_log("Download complete. Launching installer...")
-                
-                # Run the EXE installer
                 subprocess.Popen([str(installer_path)], shell=True)
-                
                 QMessageBox.information(self, "Installation",
                     "The ViGEmBus installer has been launched.\n\n"
                     "Please complete the installation, and then RESTART this server application.")
             except Exception as e:
                 self._append_log(f"Failed to download ViGEmBus: {e}")
+                QMessageBox.critical(self, "Error", f"Failed to download installer:\n{e}\n\nPlease install manually from:\n{installer_url}")
+
+    def _setup_vjoy(self):
+        vjoy_works = False
+        if controller.VJOY_AVAILABLE:
+            try:
+                import pyvjoy
+                _test = pyvjoy.VJoyDevice(1)
+                vjoy_works = True
+            except:
+                pass
+                
+        if vjoy_works:
+            QMessageBox.information(self, "vJoy", "vJoy is already installed and configured correctly!")
+            return
+
+        reply = QMessageBox.question(self, 'Install vJoy', 
+            "The vJoy DirectInput driver is missing or Device 1 is not configured.\n\n"
+            "This driver is required to bypass Forza's Speed Sensitivity and unlock 1:1 raw steering.\n\n"
+            "Would you like to automatically download and install it now?", 
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            
+        if reply == QMessageBox.Yes:
+            import urllib.request
+            import subprocess
+            
+            installer_url = "https://github.com/jshafer817/vJoy/releases/download/v2.1.9.1/vJoySetup.exe"
+            installer_path = Path(__file__).parent / "vJoySetup.exe"
+            
+            self._append_log("Downloading vJoy installer...")
+            try:
+                urllib.request.urlretrieve(installer_url, str(installer_path))
+                self._append_log("Download complete. Launching installer...")
+                subprocess.Popen([str(installer_path)], shell=True)
+                QMessageBox.information(self, "Installation",
+                    "The vJoy installer has been launched.\n\n"
+                    "WARNING: Make sure 'Companion Applications' is CHECKED during installation!\n"
+                    "After installation, use 'Configure vJoy' in Windows to ensure Device 1 has an X Axis and at least 15 buttons enabled.\n\n"
+                    "Then RESTART this server application.")
+            except Exception as e:
+                self._append_log(f"Failed to download vJoy: {e}")
                 QMessageBox.critical(self, "Error", f"Failed to download installer:\n{e}\n\nPlease install manually from:\n{installer_url}")
 
     # ── Utility ───────────────────────────────────────────────────────────────

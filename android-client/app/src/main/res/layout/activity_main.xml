@@ -26,33 +26,32 @@
         android:orientation="vertical"
         android:background="#0C0810">
 
-        <!-- Top buttons: HANDBRAKE | LOOK BACK -->
+        <!-- Top buttons: LB SHIFT | X -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="65dp"
             android:orientation="horizontal"
             android:padding="4dp">
             <Button
-                android:id="@+id/btn_handbrake"
+                android:id="@+id/btn_shift_down"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:text="HAND\nBRAKE"
+                android:text="LB\nSHIFT ▼"
                 android:textSize="10sp"
-                android:textColor="#FF5555"
-                android:textAllCaps="true"
-                android:backgroundTint="#2D0A0A"
+                android:textColor="#FFDD66"
+                android:textAllCaps="false"
+                android:backgroundTint="#1C1800"
                 android:stateListAnimator="@null"
                 android:layout_marginEnd="3dp" />
             <Button
-                android:id="@+id/btn_look"
+                android:id="@+id/btn_x"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:text="LOOK\nBACK"
-                android:textSize="10sp"
-                android:textColor="#AAAACC"
-                android:textAllCaps="true"
+                android:text="X"
+                android:textSize="18sp"
+                android:textColor="#4488FF"
                 android:backgroundTint="#141428"
                 android:stateListAnimator="@null"
                 android:layout_marginStart="3dp" />
@@ -94,34 +93,33 @@
                 android:gravity="center" />
         </FrameLayout>
 
-        <!-- Bottom buttons: REWIND | SHIFT DOWN -->
+        <!-- Bottom buttons: Y | HANDBRAKE -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="65dp"
             android:orientation="horizontal"
             android:padding="4dp">
             <Button
-                android:id="@+id/btn_rewind"
+                android:id="@+id/btn_y"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:text="⟲\nREWIND"
-                android:textSize="10sp"
-                android:textColor="#AAAACC"
-                android:textAllCaps="false"
+                android:text="Y"
+                android:textSize="18sp"
+                android:textColor="#FFDD44"
                 android:backgroundTint="#141428"
                 android:stateListAnimator="@null"
                 android:layout_marginEnd="3dp" />
             <Button
-                android:id="@+id/btn_shift_down"
+                android:id="@+id/btn_handbrake"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:text="LB\nSHIFT ▼"
+                android:text="HAND\nBRAKE (A)"
                 android:textSize="10sp"
-                android:textColor="#FFDD66"
-                android:textAllCaps="false"
-                android:backgroundTint="#1C1800"
+                android:textColor="#FF5555"
+                android:textAllCaps="true"
+                android:backgroundTint="#2D0A0A"
                 android:stateListAnimator="@null"
                 android:layout_marginStart="3dp" />
         </LinearLayout>
@@ -292,7 +290,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="36dp"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:layout_marginBottom="10dp">
             <Button
                 android:id="@+id/btn_start"
                 android:layout_width="0dp"
@@ -319,6 +318,21 @@
                 android:layout_marginStart="2dp" />
         </LinearLayout>
 
+        <!-- Right Joystick Zone -->
+        <FrameLayout
+            android:id="@+id/right_joystick_zone"
+            android:layout_width="70dp"
+            android:layout_height="70dp"
+            android:layout_gravity="center"
+            android:background="@drawable/joystick_bg">
+            <View
+                android:id="@+id/right_joystick_thumb"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_gravity="center"
+                android:background="@drawable/joystick_thumb" />
+        </FrameLayout>
+
     </LinearLayout>
 
     <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#1A1A3A" />
@@ -332,7 +346,7 @@
         android:orientation="vertical"
         android:background="#080C0A">
 
-        <!-- Top buttons: SHIFT UP | HORN -->
+        <!-- Top buttons: SHIFT UP | B -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="65dp"
@@ -351,15 +365,14 @@
                 android:stateListAnimator="@null"
                 android:layout_marginEnd="3dp" />
             <Button
-                android:id="@+id/btn_horn"
+                android:id="@+id/btn_b"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:text="Y\nHORN"
-                android:textSize="10sp"
-                android:textColor="#AACCFF"
-                android:textAllCaps="false"
-                android:backgroundTint="#0A1428"
+                android:text="B"
+                android:textSize="18sp"
+                android:textColor="#FF4444"
+                android:backgroundTint="#141428"
                 android:stateListAnimator="@null"
                 android:layout_marginStart="3dp" />
         </LinearLayout>
@@ -400,35 +413,27 @@
                 android:gravity="center" />
         </FrameLayout>
 
-        <!-- Bottom buttons: CLUTCH | REWIND (secondary) -->
+        <!-- Bottom buttons: A | Empty space -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="65dp"
             android:orientation="horizontal"
             android:padding="4dp">
             <Button
-                android:id="@+id/btn_clutch"
+                android:id="@+id/btn_a"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:text="X\nCLUTCH"
-                android:textSize="10sp"
-                android:textColor="#AAAACC"
-                android:textAllCaps="false"
+                android:text="A"
+                android:textSize="18sp"
+                android:textColor="#44FF44"
                 android:backgroundTint="#141428"
                 android:stateListAnimator="@null"
                 android:layout_marginEnd="3dp" />
-            <Button
-                android:id="@+id/btn_anna"
+            <Space
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:text="LT\nANNA"
-                android:textSize="10sp"
-                android:textColor="#AAAACC"
-                android:textAllCaps="false"
-                android:backgroundTint="#141428"
-                android:stateListAnimator="@null"
                 android:layout_marginStart="3dp" />
         </LinearLayout>
     </LinearLayout>

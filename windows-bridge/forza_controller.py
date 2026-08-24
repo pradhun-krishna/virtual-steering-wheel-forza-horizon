@@ -36,6 +36,16 @@ except Exception as e:
     logging.error(f"ViGEm modules could not be loaded: {e}")
 
 # ─── State tracking ───────────────────────────────────────────────────────────
+class DeviceState:
+    def __init__(self):
+        self.steering = 0.0
+        self.gas = 0.0
+        self.brake = 0.0
+        self.rx = 0.0
+        self.ry = 0.0
+        self.critical_queue = deque()
+        self.non_critical_queue = deque()
+
 available_devices = [1, 2]
 device_lock       = threading.Lock()
 device_states     = {}
@@ -106,6 +116,14 @@ def set_brake(percent_0_100):
     gamepad.left_trigger(value=val)
     gamepad.update()
 
+def set_right_joystick(x_pct, y_pct):
+    if gamepad is None: return
+    # XInput axes: -32768 to 32767
+    x_val = int((max(-100, min(100, x_pct)) / 100.0) * 32767)
+    y_val = int((max(-100, min(100, y_pct)) / 100.0) * 32767)
+    gamepad.right_joystick(x_value=x_val, y_value=y_val)
+    gamepad.update()
+
 def set_button(button_flag, state):
     if gamepad is None: return
     if state:
@@ -125,50 +143,45 @@ def zero_all(device_id):
 
 # ─── Protocol mapping ────────────────────────────────────────────────────────
 COMMAND_MAP = {
-    'A': 'steering',
-    'B': 'throttle',
-    'C': 'brake',
-    'D': 'handbrake',
-    'E': 'shift_down',
-    'F': 'shift_up',
-    'G': 'horn',
-    'H': 'look_back',
-    'I': 'camera',
-    'J': 'rewind',
-    'CLUTCH_ON':  'clutch_on',
-    'CLUTCH_OFF': 'clutch_off',
-    'BACK_BTN':   'view',
-    'START':      'pause',
-    'ANNA':       'view',
-    'DPAD_U':     'dpad_up',
-    'DPAD_D':     'dpad_down',
-    'DPAD_L':     'dpad_left',
-    'DPAD_R':     'dpad_right',
-    'VOLUME_DOWN': 'horn',
+    'HANDBRAKE': 'handbrake',
+    'LB': 'shift_down',
+    'RB': 'shift_up',
+    'BTN_Y': 'horn',
+    'BTN_X': 'rewind',
+    'BTN_A': 'clutch',
+    'BTN_B': 'camera',
+    'START': 'pause',
+    'BACK_BTN': 'view',
+    'DPAD_U': 'dpad_up',
+    'DPAD_D': 'dpad_down',
+    'DPAD_L': 'dpad_left',
+    'DPAD_R': 'dpad_right',
 }
 
 def get_button_flag(command):
     if not VIGEM_AVAILABLE: return None
     mapping = {
-        'D':         XUSB_BUTTON.XUSB_GAMEPAD_A,              # Handbrake
-        'E':         XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,  # Shift Down
-        'F':         XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER, # Shift Up
-        'G':         XUSB_BUTTON.XUSB_GAMEPAD_Y,              # Horn
-        'H':         XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB,    # Look Back (RSB)
-        'I':         XUSB_BUTTON.XUSB_GAMEPAD_B,              # Camera
-        'J':         XUSB_BUTTON.XUSB_GAMEPAD_X,              # Rewind
-        'BACK_BTN':  XUSB_BUTTON.XUSB_GAMEPAD_BACK,           # View/Anna
-        'ANNA':      XUSB_BUTTON.XUSB_GAMEPAD_BACK,
-        'START':     XUSB_BUTTON.XUSB_GAMEPAD_START,          # Pause
+        'HANDBRAKE': XUSB_BUTTON.XUSB_GAMEPAD_A,              # User preferred A for handbrake
+        'LB':        XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
+        'RB':        XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
+        'BTN_Y':     XUSB_BUTTON.XUSB_GAMEPAD_Y,
+        'BTN_X':     XUSB_BUTTON.XUSB_GAMEPAD_X,
+        'BTN_A':     XUSB_BUTTON.XUSB_GAMEPAD_A,
+        'BTN_B':     XUSB_BUTTON.XUSB_GAMEPAD_B,
+        'BACK_BTN':  XUSB_BUTTON.XUSB_GAMEPAD_BACK,
+        'START':     XUSB_BUTTON.XUSB_GAMEPAD_START,
         'DPAD_U':    XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP,
         'DPAD_D':    XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN,
         'DPAD_L':    XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT,
         'DPAD_R':    XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT,
-        'VOLUME_DOWN': XUSB_BUTTON.XUSB_GAMEPAD_Y,            # Horn
-        
-        # We map clutch to Left Thumb button (LSB) as a fallback since X360 has no 3rd analog trigger
-        'CLUTCH_ON': XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB,
-        'CLUTCH_OFF': XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB,
+        # Old fallbacks
+        'D':         XUSB_BUTTON.XUSB_GAMEPAD_A,
+        'E':         XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
+        'F':         XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
+        'G':         XUSB_BUTTON.XUSB_GAMEPAD_Y,
+        'H':         XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB,
+        'I':         XUSB_BUTTON.XUSB_GAMEPAD_B,
+        'J':         XUSB_BUTTON.XUSB_GAMEPAD_X,
     }
     return mapping.get(command)
 
@@ -176,58 +189,67 @@ def process_critical_message(device_id, message, update_ui_callback=None):
     command = message.strip()
     logging.debug(f"Critical: {command}")
 
-    if command == 'CLUTCH_ON':
-        btn_flag = get_button_flag('CLUTCH_ON')
-        if btn_flag: set_button(btn_flag, True)
-        if update_ui_callback: update_ui_callback('clutch', 100)
-        return
-    if command == 'CLUTCH_OFF':
-        btn_flag = get_button_flag('CLUTCH_OFF')
-        if btn_flag: set_button(btn_flag, False)
-        if update_ui_callback: update_ui_callback('clutch', 0)
-        return
+    is_on = command.endswith('_ON')
+    is_off = command.endswith('_OFF')
+    
+    base_cmd = command
+    if is_on: base_cmd = command[:-3]
+    if is_off: base_cmd = command[:-4]
 
-    btn_flag = get_button_flag(command)
+    btn_flag = get_button_flag(base_cmd)
+    logging.info(f"Crit: {message} -> btn_flag: {btn_flag}")
+    
     if btn_flag:
-        btn_name = COMMAND_MAP.get(command, command.lower())
-        pulse_button(btn_flag, 80)
-        logging.info(f"Button {command} → {btn_name}")
-        if update_ui_callback:
-            update_ui_callback(btn_name, True)
-            threading.Timer(0.1, update_ui_callback, args=(btn_name, False)).start()
+        btn_name = COMMAND_MAP.get(base_cmd, base_cmd.lower())
+        
+        if is_on:
+            set_button(btn_flag, True)
+            logging.info(f"Button {base_cmd} (PRESSED)")
+            if update_ui_callback: update_ui_callback(btn_name, True)
+        elif is_off:
+            set_button(btn_flag, False)
+            logging.info(f"Button {base_cmd} (RELEASED)")
+            if update_ui_callback: update_ui_callback(btn_name, False)
+        else:
+            # Fallback for old pulse commands if needed
+            pulse_button(btn_flag, 80)
+            logging.info(f"Button {base_cmd} → {btn_name}")
+            if update_ui_callback:
+                update_ui_callback(btn_name, True)
+                threading.Timer(0.1, update_ui_callback, args=(btn_name, False)).start()
 
 def process_non_critical_message(device_id, message, update_ui_callback=None):
     state = device_states.get(device_id)
-    if not state: return
+    if not state:
+        return
 
-    parts = message.strip().split(":")
-    if len(parts) != 2: return
-    command, value_str = parts[0], parts[1]
-
-    try:
-        if command == 'A':
-            y = float(value_str)
-            state['last_steering'] = y
-            set_steering(y)
-            if update_ui_callback:
-                # Map -10/10 to 0-32767 for UI consistency with old code
-                ui_val = int(((y + 10.0) / 20.0) * 32767)
-                update_ui_callback('steering', ui_val)
-
-        elif command == 'B':
-            pct = int(value_str)
-            set_gas(pct)
-            if update_ui_callback:
-                update_ui_callback('throttle', pct)
-
-        elif command == 'C':
-            pct = int(value_str)
-            set_brake(pct)
-            if update_ui_callback:
-                update_ui_callback('brake', pct)
-
-    except (ValueError, TypeError) as e:
-        logging.error(f"Value error processing '{message}': {e}")
+    parts = message.split(':')
+    if len(parts) == 2:
+        key = parts[0]
+        try:
+            val = float(parts[1])
+            if key == 'A':
+                set_steering(val)
+                state.steering = val
+                if update_ui_callback: 
+                    ui_val = int(((val + 10.0) / 20.0) * 32767)
+                    update_ui_callback('steering', ui_val)
+            elif key == 'B':
+                set_gas(val)
+                state.gas = val
+                if update_ui_callback: update_ui_callback('throttle', val)
+            elif key == 'C':
+                set_brake(val)
+                state.brake = val
+                if update_ui_callback: update_ui_callback('brake', val)
+            elif key == 'RX':
+                state.rx = val
+                set_right_joystick(state.rx, getattr(state, 'ry', 0.0))
+            elif key == 'RY':
+                state.ry = val
+                set_right_joystick(getattr(state, 'rx', 0.0), state.ry)
+        except ValueError:
+            pass
 
 # ─── Client handler threads ───────────────────────────────────────────────────
 def handle_critical_messages(device_id, update_ui_callback=None):
@@ -235,8 +257,8 @@ def handle_critical_messages(device_id, update_ui_callback=None):
         try:
             state = device_states.get(device_id)
             if state is None: break
-            if state['critical_queue']:
-                process_critical_message(device_id, state['critical_queue'].popleft(), update_ui_callback)
+            if state.critical_queue:
+                process_critical_message(device_id, state.critical_queue.popleft(), update_ui_callback)
             else:
                 time.sleep(0.005)
         except Exception as e:
@@ -248,9 +270,9 @@ def handle_non_critical_messages(device_id, update_ui_callback=None):
         try:
             state = device_states.get(device_id)
             if state is None: break
-            if state['non_critical_queue']:
-                msg = state['non_critical_queue'].popleft()
-                state['non_critical_queue'].clear()
+            if state.non_critical_queue:
+                msg = state.non_critical_queue.popleft()
+                state.non_critical_queue.clear()
                 process_non_critical_message(device_id, msg, update_ui_callback)
             else:
                 time.sleep(0.01)
@@ -264,11 +286,9 @@ def handle_client(conn, addr, device_id, update_ui_callback=None, connection_cal
         connection_callback(device_id, True)
     
     with device_lock:
-        device_states[device_id] = {
-            'critical_queue': deque(),
-            'non_critical_queue': deque(),
-            'last_steering': 0.0
-        }
+        device_states[device_id] = DeviceState()
+        device_states[device_id].critical_queue = deque()
+        device_states[device_id].non_critical_queue = deque()
 
     critical_thread = threading.Thread(target=handle_critical_messages, args=(device_id, update_ui_callback), daemon=True)
     non_critical_thread = threading.Thread(target=handle_non_critical_messages, args=(device_id, update_ui_callback), daemon=True)
@@ -290,10 +310,14 @@ def handle_client(conn, addr, device_id, update_ui_callback=None, connection_cal
                     line = line.strip()
                     if not line: continue
                     
-                    if line in COMMAND_MAP or line.startswith('CLUTCH_'):
-                        device_states[device_id]['critical_queue'].append(line)
-                    elif line.startswith(('A:', 'B:', 'C:')):
-                        device_states[device_id]['non_critical_queue'].append(line)
+                    is_critical = False
+                    if line in COMMAND_MAP or line.endswith('_ON') or line.endswith('_OFF') or len(line) == 1 or line == 'BACK_BTN' or line.startswith('DPAD_'):
+                        is_critical = True
+                    
+                    if is_critical:
+                        device_states[device_id].critical_queue.append(line)
+                    elif line.startswith(('A:', 'B:', 'C:', 'RX:', 'RY:')):
+                        device_states[device_id].non_critical_queue.append(line)
 
             except socket.timeout:
                 continue
@@ -318,6 +342,7 @@ def handle_client(conn, addr, device_id, update_ui_callback=None, connection_cal
             connection_callback(device_id, False)
 
 def start_server(host='0.0.0.0', port=12345, update_ui_callback=None, connection_callback=None):
+    shutdown_event.clear()
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     

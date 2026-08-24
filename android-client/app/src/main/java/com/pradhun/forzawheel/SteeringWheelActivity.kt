@@ -35,15 +35,14 @@ class SteeringWheelActivity : AppCompatActivity() {
 
     // ── Left panel buttons
     private lateinit var btnHandbrake: Button
-    private lateinit var btnLook: Button
-    private lateinit var btnRewind: Button
+    private lateinit var btnX: Button
+    private lateinit var btnY: Button
     private lateinit var btnShiftDown: Button
 
     // ── Right panel buttons
     private lateinit var btnShiftUp: Button
-    private lateinit var btnHorn: Button
-    private lateinit var btnClutch: Button
-    private lateinit var btnAnna: Button
+    private lateinit var btnB: Button
+    private lateinit var btnA: Button
 
     // ── Center gamepad buttons
     private lateinit var btnCamera: Button
@@ -55,6 +54,10 @@ class SteeringWheelActivity : AppCompatActivity() {
     private lateinit var btnBackBtn: Button
     private lateinit var btnCalibrate: Button
     private lateinit var btnChangeIp: Button
+
+    // ── Right Joystick
+    private lateinit var rightJoystickZone: FrameLayout
+    private lateinit var rightJoystickThumb: View
 
     // ── State
     private var accelSens = 1.0f
@@ -74,6 +77,7 @@ class SteeringWheelActivity : AppCompatActivity() {
             or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
             or View.SYSTEM_UI_FLAG_FULLSCREEN
         )
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         sensorEngine = SensorEngine(sm)
@@ -100,16 +104,15 @@ class SteeringWheelActivity : AppCompatActivity() {
         connectionLabel = findViewById(R.id.connectionLabel)
 
         // Left panel
-        btnHandbrake    = findViewById(R.id.btn_handbrake)
-        btnLook         = findViewById(R.id.btn_look)
-        btnRewind       = findViewById(R.id.btn_rewind)
         btnShiftDown    = findViewById(R.id.btn_shift_down)
+        btnX            = findViewById(R.id.btn_x)
+        btnY            = findViewById(R.id.btn_y)
+        btnHandbrake    = findViewById(R.id.btn_handbrake)
 
         // Right panel
         btnShiftUp      = findViewById(R.id.btn_shift_up)
-        btnHorn         = findViewById(R.id.btn_horn)
-        btnClutch       = findViewById(R.id.btn_clutch)
-        btnAnna         = findViewById(R.id.btn_anna)
+        btnB            = findViewById(R.id.btn_b)
+        btnA            = findViewById(R.id.btn_a)
 
         // Center gamepad
         btnCamera       = findViewById(R.id.btn_camera)
@@ -121,6 +124,9 @@ class SteeringWheelActivity : AppCompatActivity() {
         btnBackBtn      = findViewById(R.id.btn_back_btn)
         btnCalibrate    = findViewById(R.id.btn_calibrate)
         btnChangeIp     = findViewById(R.id.btn_change_ip)
+        
+        rightJoystickZone = findViewById(R.id.right_joystick_zone)
+        rightJoystickThumb = findViewById(R.id.right_joystick_thumb)
     }
 
     private fun loadConfig() {
@@ -161,6 +167,42 @@ class SteeringWheelActivity : AppCompatActivity() {
             }
             true
         }
+        
+        rightJoystickZone.setOnTouchListener { view, event ->
+            val cx = view.width / 2f
+            val cy = view.height / 2f
+            
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                    val dx = event.x - cx
+                    val dy = event.y - cy
+                    
+                    // Clamp to radius
+                    val maxR = cx - rightJoystickThumb.width / 2f
+                    val dist = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+                    
+                    val tx = if (dist > maxR) dx * (maxR / dist) else dx
+                    val ty = if (dist > maxR) dy * (maxR / dist) else dy
+                    
+                    rightJoystickThumb.translationX = tx
+                    rightJoystickThumb.translationY = ty
+                    
+                    // -100 to 100
+                    val pctX = ((tx / maxR) * 100).toInt().coerceIn(-100, 100)
+                    val pctY = (-(ty / maxR) * 100).toInt().coerceIn(-100, 100)
+                    
+                    tcpClient.sendCommand("RX:$pctX")
+                    tcpClient.sendCommand("RY:$pctY")
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    rightJoystickThumb.translationX = 0f
+                    rightJoystickThumb.translationY = 0f
+                    tcpClient.sendCommand("RX:0")
+                    tcpClient.sendCommand("RY:0")
+                }
+            }
+            true
+        }
     }
 
     private fun applyFill(fill: View, label: TextView, pct: Int, zoneHeight: Int) {
@@ -172,34 +214,34 @@ class SteeringWheelActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupButtonListeners() {
-        // Left panel
-        btnHandbrake.setOnClickListener { tcpClient.sendCommand("D") }   // Handbrake (vJoy btn 1 = A)
-        btnLook.setOnClickListener      { tcpClient.sendCommand("H") }   // Look Back (vJoy btn 12 = RSB)
-        btnRewind.setOnClickListener    { tcpClient.sendCommand("J") }   // Rewind (vJoy btn 3 = X)
-        btnShiftDown.setOnClickListener { tcpClient.sendCommand("E") }   // Shift Down (vJoy btn 5 = LB)
-
-        // Right panel
-        btnShiftUp.setOnClickListener { tcpClient.sendCommand("F") }     // Shift Up (vJoy btn 6 = RB)
-        btnHorn.setOnClickListener    { tcpClient.sendCommand("G") }     // Horn (vJoy btn 4 = Y)
-        btnAnna.setOnClickListener    { tcpClient.sendCommand("ANNA") }  // Anna (vJoy btn 9 = View/Back)
-
-        // Clutch — HOLD to engage, RELEASE to disengage (drives the clutch AXIS, not a button pulse)
-        btnClutch.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> tcpClient.sendCommand("CLUTCH_ON")
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> tcpClient.sendCommand("CLUTCH_OFF")
+        fun makeHoldable(btn: Button, cmd: String) {
+            btn.setOnTouchListener { _, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> tcpClient.sendCommand("${cmd}_ON")
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> tcpClient.sendCommand("${cmd}_OFF")
+                }
+                false
             }
-            false
         }
 
+        // Left panel
+        makeHoldable(btnShiftDown, "LB")
+        makeHoldable(btnX, "BTN_X")
+        makeHoldable(btnY, "BTN_Y")
+        makeHoldable(btnHandbrake, "HANDBRAKE")
+
+        // Right panel
+        makeHoldable(btnShiftUp, "RB")
+        makeHoldable(btnB, "BTN_B")
+        makeHoldable(btnA, "BTN_A")
+
         // Center gamepad
-        btnCamera.setOnClickListener    { tcpClient.sendCommand("I") }        // Camera (vJoy btn 2 = B)
-        btnDpadUp.setOnClickListener    { tcpClient.sendCommand("DPAD_U") }   // D-pad up
-        btnDpadDown.setOnClickListener  { tcpClient.sendCommand("DPAD_D") }   // D-pad down
-        btnDpadLeft.setOnClickListener  { tcpClient.sendCommand("DPAD_L") }   // D-pad left
-        btnDpadRight.setOnClickListener { tcpClient.sendCommand("DPAD_R") }   // D-pad right
-        btnStart.setOnClickListener     { tcpClient.sendCommand("START") }    // Pause (vJoy btn 10)
-        btnBackBtn.setOnClickListener   { tcpClient.sendCommand("BACK_BTN") } // View/Back → Anna (vJoy btn 9)
+        makeHoldable(btnDpadUp, "DPAD_U")
+        makeHoldable(btnDpadDown, "DPAD_D")
+        makeHoldable(btnDpadLeft, "DPAD_L")
+        makeHoldable(btnDpadRight, "DPAD_R")
+        makeHoldable(btnStart, "START")
+        makeHoldable(btnBackBtn, "BACK_BTN")
 
         btnCalibrate.setOnClickListener { sensorEngine.calibrate() }
         btnChangeIp.setOnClickListener {

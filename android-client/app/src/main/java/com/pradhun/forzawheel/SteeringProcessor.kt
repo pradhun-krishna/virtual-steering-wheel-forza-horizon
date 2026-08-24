@@ -7,7 +7,7 @@ package com.pradhun.forzawheel
 class SteeringProcessor {
     
     // Configurable parameters
-    var maxSteeringAngle: Float = 360f // Total angle lock-to-lock (±180 defaults)
+    var maxSteeringAngle: Float = 180f // Total angle lock-to-lock (±90 defaults)
     var deadzonePercent: Float = 0.02f // 2% deadzone
     
     // Output protocol max (Android sends -10 to +10)

@@ -15,6 +15,13 @@ By combining an ultra-low latency local network protocol with advanced Android S
 
 ---
 
+## 📥 Download (Quick Start)
+
+You do **not** need to build this project from source to use it! 
+You can find the ready-to-use **Android APK** and **Windows EXE** in the **GitHub Releases** section (look for "Releases" on the right side of this repository page). Download both files from the latest release to get started immediately.
+
+---
+
 ## 🚀 Installation & Setup
 
 ### 1. Windows PC (The Server)

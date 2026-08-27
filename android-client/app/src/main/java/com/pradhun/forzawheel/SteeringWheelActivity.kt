@@ -254,7 +254,8 @@ class SteeringWheelActivity : AppCompatActivity() {
         lifecycleScope.launch {
             sensorEngine.sensorData.collect { data ->
                 val processed = steeringProcessor.process(data.steeringAngle)
-                if (Math.abs(processed - lastSteer) > 0.05f) {
+                // Extremely low threshold for high-resolution steering data
+                if (Math.abs(processed - lastSteer) > 0.005f) {
                     lastSteer = processed
                     tcpClient.sendCommand("A:$processed")
                 }
